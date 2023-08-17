@@ -1,0 +1,61 @@
+tick() {
+	@e[tag=clear_spawner_spawner].spawn_spawner()
+	@e[tag=clear_spawner].spawn_clear()
+	@e[tag=clear_column].clear_block()
+	@e[tag=move].move()
+}
+
+init() {
+	/summon armor_stand ~-4 -64 ~ {Marker: 1, Invisible: 1, Tags: ["clear_spawner_spawner", "north", "move"]}
+	@e[tag=north,sort=nearest,limit=1].mx = 4
+	/summon armor_stand ~4 -64 ~ {Marker: 1, Invisible: 1, Tags: ["clear_spawner_spawner", "south", "move"]}
+	@e[tag=south,sort=nearest,limit=1].mx = -4
+	/summon armor_stand ~ -64 ~-4 {Marker: 1, Invisible: 1, Tags: ["clear_spawner_spawner", "east", "move"]}
+	@e[tag=east,sort=nearest,limit=1].mz = 4
+	/summon armor_stand ~ -64 ~4 {Marker: 1, Invisible: 1, Tags: ["clear_spawner_spawner", "west", "move"]}
+	@e[tag=west,sort=nearest,limit=1].mz = -4
+	# Clear center column
+	/summon armor_stand ~ -64 ~ {Marker: 1, Invisible: 1, Tags: ["clear_column", "move"]}
+}
+
+spawn_spawner() {
+	/summon armor_stand ~ -64 ~ {Marker: 1, Invisible: 1, Tags: ["clear_spawner", "move"]}
+	@e[tag=clear_spawner,sort=nearest,limit=1].mx = @s.mz
+	@e[tag=clear_spawner,sort=nearest,limit=1].mz -= @s.mx
+}
+
+spawn_clear() {
+	/summon armor_stand ~ -64 ~ {Marker: 1, Invisible: 1, Tags: ["clear_column", "move"]}
+	@e[tag=clear_column,sort=nearest,limit=1].my = 4
+}
+
+move() {
+	@s.x = data @s Pos[0]
+	@s.y = data @s Pos[1]
+	@s.z = data @s Pos[2]
+
+	@s.x += @s.mx
+	@s.y += @s.my
+	@s.z += @s.mz
+
+	data @s Pos[0] = @s.x
+	data @s Pos[1] = @s.y
+	data @s Pos[2] = @s.z
+}
+
+clear_block() {
+	y = data @s Pos[1]
+	if y > 320 {
+    	/kill
+    }
+
+	# Top 2 layers
+	/fill ~-1 ~1 ~-1 ~2 ~2 ~2 air
+	# Block layer
+	/fill ~-1 ~ ~1 ~2 ~ ~2 air
+	/fill ~1 ~ ~-1 ~2 ~ ~ air
+	/fill ~-1 ~ ~-1 ~-1 ~ ~ air
+	/setblock ~ ~ ~-1 air
+	# Bottom layer
+	/fill ~-1 ~-1 ~-1 ~2 ~-1 ~2 air
+}

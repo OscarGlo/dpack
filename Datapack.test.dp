@@ -1,0 +1,73 @@
+load() {}
+
+tick() {}
+
+deposit() {
+    # Check if player is holding diamonds
+    if entity @s[nbt={SelectedItem:{id:"minecraft:diamond"}}] {
+        count = data @s SelectedItem.Count
+        if count > 1 {
+            tellraw @s "Deposited ", count, " diamonds."
+        } else {
+            tellraw @s "Deposited 1 diamond."
+        }
+
+        # Add credit
+        @s.bank += count
+        # Remove from inventory if not in creative
+        if entity @s[gamemode=!creative] {
+            /item replace entity @s weapon.mainhand with air
+        }
+    } else {
+        tellraw @s "Please hold diamonds to deposit them."
+    }
+}
+
+withdraw() {
+    count = @s.bank
+    if count == 0 {
+        tellraw @s "You don't have any diamonds in your account!"
+    } else {
+        # Get withdraw quantity
+        count < 64
+        # Withdraw
+        @s.bank -= count
+
+        # Give diamonds if not in creative
+        if entity @s[gamemode=!creative] {
+            players = 2 #/list
+            if players > 1 {
+                give_diamonds(count)
+            } else {
+                give_diamond_stack(count)
+            }
+        }
+    }
+}
+
+give_diamond_stack(n) {
+    # Summon stack
+    /summon item 0 0 0 {PickupDelay: 0, Tags: ["withdraw"], Item: {id: "minecraft:diamond", Count: 1}}
+
+    #%stack @e[type=item, tag=withdraw, limit=1]
+    # Set item count
+    data @e[type=item, tag=withdraw, limit=1] Item.Count = n
+    # Teleport to player
+    /tp @e[type=item, tag=withdraw, limit=1] @s
+}
+
+give_diamonds(n) {
+    if n >= 16 {
+        /give @s diamond 16
+        n -= 16
+    } else if n > 0 {
+        /give @s diamond 1
+        n--
+    }
+
+    if n > 0 {
+        give_diamonds(n)
+    } else {
+        tellraw "done"
+    }
+}
