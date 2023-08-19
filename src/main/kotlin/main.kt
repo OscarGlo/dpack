@@ -1,5 +1,3 @@
-import gen.DpackLexer
-import gen.DpackParser
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.nio.file.Path

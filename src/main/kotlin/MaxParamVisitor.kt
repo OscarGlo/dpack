@@ -1,5 +1,3 @@
-import gen.DpackBaseVisitor
-import gen.DpackParser
 import kotlin.math.max
 
 class MaxParamVisitor : DpackBaseVisitor<Int>() {

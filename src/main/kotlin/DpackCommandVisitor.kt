@@ -1,5 +1,3 @@
-import gen.DpackBaseVisitor
-import gen.DpackParser
 import org.antlr.v4.runtime.tree.TerminalNode
 
 fun TerminalNode.clean() = text.replace(Regex("^\\s*/|\\s*$"), "")

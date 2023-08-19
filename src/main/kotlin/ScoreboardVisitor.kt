@@ -1,6 +1,3 @@
-import gen.DpackBaseVisitor
-import gen.DpackParser
-
 class ScoreboardVisitor : DpackBaseVisitor<Set<String>>() {
     override fun defaultResult() = emptySet<String>()
     override fun aggregateResult(aggregate: Set<String>, nextResult: Set<String>) = aggregate + nextResult
