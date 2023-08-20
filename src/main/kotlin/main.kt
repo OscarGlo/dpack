@@ -14,14 +14,17 @@ fun main(args: Array<String>) {
     if (!path.toFile().exists())
         error("$path not found")
 
+    // Parse file
     val lexer = DpackLexer(CharStreams.fromPath(path))
     val parser = DpackParser(CommonTokenStream(lexer))
     val tree = parser.program()
 
+    // Calculate max number of function params and initialize scoreboards
     val maxParams = MaxParamVisitor().visit(tree)
-    val scoreboards = (0 until maxParams).map { i -> "-P$i" }.toSet() +
+    val scoreboards = (1 .. maxParams).map { i -> "-P$i" }.toSet() +
             ScoreboardVisitor().visit(tree)
 
+    // Generate and save function files
     val datapack = DpackCommandVisitor(world, name).visit(tree) as Datapack
     datapack.save(scoreboards)
 }

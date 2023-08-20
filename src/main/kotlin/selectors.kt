@@ -2,24 +2,29 @@ import org.antlr.v4.runtime.tree.TerminalNode
 
 open class Sel(src: String? = null) {
     companion object {
-        val reg = Regex("@([parse])(?:\\[(.*)])?")
+        val regex = Regex("@([parse])(?:\\[(.*)])?")
     }
 
     private var char = "e"
     private val conditions = mutableMapOf<String, String>()
 
     init {
-        when (src) {
-            null -> conditions["tag"] = Cmd.packName + "-C"
-            else -> {
-                val match = reg.find(src)
-                    ?: error("Invalid selector $src")
+        if (src == null) {
+            // Current holder
+            conditions["tag"] = Cmd.packName + "-C"
+        } else {
+            val match = regex.find(src)
+                ?: error("Invalid selector $src")
 
-                char = match.groupValues[1]
-                match.groups[2]?.value?.split(Regex("\\s*,\\s*"))?.forEach {
-                    val (k, v) = it.split("=")
-                    conditions[k] = v
-                }
+            char = match.groupValues[1]
+
+            if (match.groups[2] != null) {
+                val conds = match.groups[2]!!.value
+                    .split(Regex("\\s*,\\s*"))
+                    .associate {
+                        it.split("=").zipWithNext().single()
+                    }
+                conditions.putAll(conds)
             }
         }
     }
