@@ -44,7 +44,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
                 ctx.children[0].accept(this) as List<Cmd>? ?: listOf(Cmd("{UNKNOWN}"))
 
         return if (debug && ctx.children[0] !is If_Context)
-            listOf(Comment(ctx.text)) + commands
+            listOf(Comment(ctx.text.trim())) + commands
         else
             commands
     }
