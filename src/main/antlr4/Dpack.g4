@@ -6,12 +6,16 @@ function: ID LPAR (ID (SEP ID)*)? RPAR block;
 block: LCUR statement* RCUR;
 
 // Statements
-statement: if_ | incdec | affect | dataSet | setData | tellraw | funCall | COMMAND;
+statement: if_ | execute | incdec | affect | dataSet | setData | tellraw | funCall | COMMAND;
 
 if_: cond block else_if* else_?;
 else_if: ELSE cond block;
 else_: ELSE block;
 cond: (IF | UNLESS) (ENTITY SEL | boolExpr);
+
+executeKeyword: ALIGN | ANCHORED | AS | AT | FACING | IF | IN | ON | POSITIONED | ROTATED | STORE | SUMMON | UNLESS;
+subExec: executeKeyword STRING;
+execute: subExec+ block;
 
 affect: var (SET (value | COMMAND) | opSet value);
 opSet: ADDSET | SUBSET | MULSET | DIVSET | MODSET | LT | GT | SWAP;
@@ -43,6 +47,18 @@ TELLRAW: 'tellraw';
 PRINT: 'print';
 ENTITY: 'entity';
 DATA: 'data';
+
+ALIGN: 'align';
+ANCHORED: 'anchored';
+AS: 'as';
+AT: 'at';
+FACING: 'facing';
+IN: 'in';
+ON: 'on';
+POSITIONED: 'positioned';
+ROTATED: 'rotated';
+STORE: 'store';
+SUMMON: 'summon';
 
 // Tokens
 NUM: '-'? [0-9]+;

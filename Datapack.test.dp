@@ -49,11 +49,12 @@ give_diamond_stack(n) {
     # Summon stack
     /summon item 0 0 0 {PickupDelay: 0, Tags: ["withdraw"], Item: {id: "minecraft:diamond", Count: 1}}
 
-    #%stack @e[type=item, tag=withdraw, limit=1]
-    # Set item count
-    data @e[type=item, tag=withdraw, limit=1] Item.Count = n
-    # Teleport to player
-    /tp @e[type=item, tag=withdraw, limit=1] @s
+    at "@s" as "@e[type=item, tag=withdraw, limit=1]" {
+		# Set item count
+		data @s Item.Count = n
+		# Teleport to player
+		/tp @s ~ ~ ~
+    }
 }
 
 give_diamonds(n) {

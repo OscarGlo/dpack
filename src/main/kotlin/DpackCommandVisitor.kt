@@ -1,4 +1,3 @@
-import DpackParser.If_Context
 import org.antlr.v4.runtime.tree.TerminalNode
 
 fun clean(node: TerminalNode) = node.text.replace(Regex("^\\s*/|\\s*$"), "")
@@ -43,7 +42,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
             else
                 ctx.children[0].accept(this) as List<Cmd>? ?: listOf(Cmd("{UNKNOWN}"))
 
-        return if (debug && ctx.children[0] !is If_Context)
+        return if (debug && ctx.children[0] !is DpackParser.If_Context && ctx.children[0] !is DpackParser.ExecuteContext)
             listOf(Comment(ctx.text.trim())) + commands
         else
             commands
@@ -145,6 +144,16 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
 
         ifN--
         return cmds
+    }
+
+    override fun visitExecute(ctx: DpackParser.ExecuteContext): List<Cmd> {
+        val opts = ctx.subExec().map {
+            it.executeKeyword().text + " " + it.STRING().text.run { substring(1, length - 1) }
+        }
+        val cmds = visitBlock(ctx.block()).map { cmd -> cmd.apply { options.addAll(0, opts) } }
+
+        return if (debug) listOf(Comment(opts.joinToString(" "))) + cmds
+        else cmds
     }
 
     override fun visitFunCall(ctx: DpackParser.FunCallContext): Any {
