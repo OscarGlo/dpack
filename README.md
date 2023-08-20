@@ -29,7 +29,7 @@ with one armor stand per function call.
 
 ## TODO
 
-- execute groups (kind of like context blocks in certain languages)
 - booleans as tags?
 - tail recursive functions
 - execute single command ifs directly
+- improve debug (whitespace, blocks)
