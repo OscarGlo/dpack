@@ -29,11 +29,7 @@ with one armor stand per function call.
 
 ## TODO
 
-- CHANGE EXECUTION TO A CLI
-
-
 - execute groups (kind of like context blocks in certain languages)
 - booleans as tags?
 - tail recursive functions
 - execute single command ifs directly
-- debug comments

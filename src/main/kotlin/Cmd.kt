@@ -1,4 +1,4 @@
-class Cmd(val command: String, vararg options: String) {
+open class Cmd(val command: String, vararg options: String) {
     companion object {
         var packName: String = ""
     }
@@ -16,4 +16,8 @@ class Cmd(val command: String, vararg options: String) {
             else -> options.joinToString(" ", "execute ", " run ") + command
         }
     }
+}
+
+class Comment(text: String) : Cmd("# $text") {
+    override fun toString() = command
 }

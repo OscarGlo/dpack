@@ -1,3 +1,4 @@
+import DpackParser.If_Context
 import org.antlr.v4.runtime.tree.TerminalNode
 
 fun clean(node: TerminalNode) = node.text.replace(Regex("^\\s*/|\\s*$"), "")
@@ -11,7 +12,8 @@ fun str(ctx: DpackParser.VarContext, limit: Boolean = false): String {
 fun str(ctx: DpackParser.EntityDataPathContext) = "${Sel(ctx.SEL())} ${ctx.dataPath().text}"
 
 @Suppress("UNCHECKED_CAST")
-class DpackCommandVisitor(private val world: String, private val name: String) : DpackBaseVisitor<Any>() {
+class DpackCommandVisitor(private val world: String, private val name: String, private val debug: Boolean = false) :
+    DpackBaseVisitor<Any>() {
     private var ifN = -1
 
     override fun visitProgram(ctx: DpackParser.ProgramContext): Datapack {
@@ -23,7 +25,7 @@ class DpackCommandVisitor(private val world: String, private val name: String) :
         return dp
     }
 
-    override fun visitFunction(ctx: DpackParser.FunctionContext): Pair<String, List<Cmd>> {
+    override fun visitFunction(ctx: DpackParser.FunctionContext): Pair<String, Function> {
         // Unpack function params
         val unpack = ctx.ID().drop(1).mapIndexed { i, id ->
             Cmd("scoreboard players operation ${Sel()} $id = ${Sel()} -P$i")
@@ -34,12 +36,18 @@ class DpackCommandVisitor(private val world: String, private val name: String) :
 
     override fun visitBlock(ctx: DpackParser.BlockContext) = ctx.statement().flatMap(this::visitStatement)
 
-    override fun visitStatement(ctx: DpackParser.StatementContext) =
-        if (ctx.COMMAND() != null)
-            // Cleaned raw command
-            listOf(Cmd(clean(ctx.COMMAND())))
+    override fun visitStatement(ctx: DpackParser.StatementContext): List<Cmd> {
+        val commands =
+            if (ctx.COMMAND() != null)
+                listOf(Cmd(clean(ctx.COMMAND())))
+            else
+                ctx.children[0].accept(this) as List<Cmd>? ?: listOf(Cmd("{UNKNOWN}"))
+
+        return if (debug && ctx.children[0] !is If_Context)
+            listOf(Comment(ctx.text)) + commands
         else
-            ctx.children[0].accept(this) as List<Cmd>? ?: listOf(Cmd("{UNKNOWN}"))
+            commands
+    }
 
     override fun visitCond(ctx: DpackParser.CondContext): String {
         val neg = ctx.UNLESS() != null
@@ -89,10 +97,12 @@ class DpackCommandVisitor(private val world: String, private val name: String) :
         val needAll = ctx.else_if().isNotEmpty() && (ctx.else_if().size > 1 || ctx.else_() != null)
 
         val ifBlock = run {
-            val l = mutableListOf(Cmd("tag ${Sel()} add -I$ifN", this.visitCond(ctx.cond())))
+            val cmds = mutableListOf(Cmd("tag ${Sel()} add -I$ifN", this.visitCond(ctx.cond())))
             if (needAll)
-                l += Cmd("tag ${Sel()} add -A$ifN", "if entity ${ETags("$name-C", "-I$ifN")}")
-            l + ifBlock(ctx.block())
+                cmds += Cmd("tag ${Sel()} add -A$ifN", "if entity ${ETags("$name-C", "-I$ifN")}")
+            if (debug)
+                cmds.add(0, Comment(ctx.cond().text))
+            cmds + ifBlock(ctx.block())
         }
 
         val elseIfBlocks = ctx.else_if().map { ei ->
@@ -103,14 +113,19 @@ class DpackCommandVisitor(private val world: String, private val name: String) :
                 Cmd("tag ${Sel()} remove -I$ifN"),
                 Cmd("tag ${Sel()} add -I$ifN", *options.toTypedArray())
             )
+            if (debug)
+                cmds.add(0, Comment("else ${ei.cond()}"))
             if (needAll)
                 cmds += Cmd("tag ${Sel()} add -A$ifN", "if entity ${ETags("$name-C", "-I$ifN")}")
             cmds + ifBlock(ei.block())
         }
 
-        val elseBlock = ctx.else_()?.run {
+        val elseBlock = if (ctx.else_() != null) {
+            val cmds = ifBlock(ctx.else_().block()).toMutableList()
+            if (debug) cmds.add(0, Comment("else"))
+
             if (elseIfBlocks.isEmpty())
-                ifBlock(block()).map { it.apply { simpleElse = true } }
+                cmds.map { it.apply { simpleElse = true } }
             else {
                 val options = mutableListOf<String>()
                 if (needAll)
@@ -118,9 +133,9 @@ class DpackCommandVisitor(private val world: String, private val name: String) :
                 listOf(
                     Cmd("tag ${Sel()} remove -I$ifN"),
                     Cmd("tag ${Sel()} add -I$ifN", *options.toTypedArray())
-                ) + ifBlock(block())
+                ) + cmds
             }
-        } ?: emptyList()
+        } else emptyList()
 
         val cmds =
             (ifBlock + elseIfBlocks.flatten() + elseBlock + Cmd("tag ${Sel()} remove -I$ifN")).toMutableList()
