@@ -5,4 +5,5 @@ class MaxParamVisitor : DpackBaseVisitor<Int>() {
     override fun aggregateResult(a: Int, b: Int) = max(a, b)
 
     override fun visitFunction(ctx: DpackParser.FunctionContext) = ctx.ID().size
+    override fun visitReturn(ctx: DpackParser.ReturnContext) = ctx.value().size
 }

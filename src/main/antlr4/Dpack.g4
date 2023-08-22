@@ -6,7 +6,7 @@ function: ID LPAR (ID (SEP ID)*)? RPAR block;
 block: LCUR statement* RCUR;
 
 // Statements
-statement: if_ | execute | incdec | affect | dataSet | setData | tellraw | funCall | COMMAND;
+statement: if_ | execute | incdec | affect | dataSet | setData | tellraw | funCall | return | COMMAND;
 
 if_: cond block else_if* else_?;
 else_if: ELSE cond block;
@@ -28,7 +28,9 @@ dataPath: ID (DOT ID | LSQ NUM RSQ)*;
 tellraw: (PRINT | TELLRAW) SEL? tellrawPart (SEP tellrawPart)*;
 tellrawPart: var | STRING;
 
-funCall: var LPAR (value (SEP value)*)? RPAR;
+funName: var;
+funCall: (var (SEP var)* SET)? funName LPAR (value (SEP value)*)? RPAR;
+return: RETURN value (SEP value)*;
 
 incdec: var (INC | DEC);
 
@@ -47,6 +49,7 @@ TELLRAW: 'tellraw';
 PRINT: 'print';
 ENTITY: 'entity';
 DATA: 'data';
+RETURN: 'return';
 
 ALIGN: 'align';
 ANCHORED: 'anchored';

@@ -169,21 +169,37 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
             }
         }
 
-        val va = ctx.`var`()
-        val call = Cmd("function $name:${va.ID().text}", "store success score ${Sel()} -S")
+        val va = ctx.funName().`var`()
+        val call = Cmd("function $name:${va.text}", "store success score ${Sel()} -S")
 
         if (va.SEL() != null) {
             call.options += "as ${Sel(va.SEL())}"
             call.options += "at @s"
         }
 
+        // Bind return values
+        val affect = ctx.`var`().mapIndexed { i, v ->
+            Cmd("""scoreboard players operation ${Sel(v.SEL())} ${v.ID().text} = ${Sel()} -P$i""")
+        }
+
         return cmds + listOf(
             call,
+            *affect.toTypedArray(),
             Cmd(
                 """tellraw @a {"color":"red","text":"Error: Function ${va.ID().text} not found"}""",
                 "if score ${Sel().limit()} -S matches 0"
             )
         )
+    }
+
+    override fun visitReturn(ctx: DpackParser.ReturnContext): List<Cmd> {
+        return ctx.value().mapIndexed { i, v ->
+            val returnVar = "@e[tag=$name-S, scores={-N=1}] -P$i"
+            if (v.NUM() != null)
+                Cmd("""scoreboard players set $returnVar ${v.NUM().text}""")
+            else
+                Cmd("""scoreboard players operation $returnVar = ${Sel(v.`var`().SEL())} ${v.`var`().ID().text}""")
+        }
     }
 
     override fun visitAffect(ctx: DpackParser.AffectContext): List<Cmd> {

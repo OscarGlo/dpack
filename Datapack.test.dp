@@ -23,6 +23,16 @@ deposit() {
     }
 }
 
+player_count() {
+	count = 2 #/list
+	return count
+}
+
+test_player_count() {
+	count = player_count()
+	tellraw count
+}
+
 withdraw() {
     count = @s.bank
     if count == 0 {
@@ -35,7 +45,7 @@ withdraw() {
 
         # Give diamonds if not in creative
         if entity @s[gamemode=!creative] {
-            players = 2 #/list
+            players = player_count()
             if players > 1 {
                 give_diamonds(count)
             } else {

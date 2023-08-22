@@ -9,7 +9,7 @@ with one armor stand per function call.
 
 | Name  | Description                     |
 |:-----:|---------------------------------|
-| `-Pn` | nth function argument           |
+| `-Pn` | nth function argument / return  |
 | `-N`  | Store scope depth (0 = current) |
 | `-S`  | Function call success value     |
 | `-T`  | Temporary operation value       |
@@ -33,3 +33,4 @@ with one armor stand per function call.
 - tail recursive functions
 - execute single command ifs directly
 - improve debug (whitespace, blocks)
+- early return
