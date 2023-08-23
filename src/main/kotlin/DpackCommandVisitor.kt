@@ -15,6 +15,8 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
     DpackBaseVisitor<Any>() {
     private var ifN = -1
 
+    private var afterReturn = false
+
     override fun visitProgram(ctx: DpackParser.ProgramContext): Datapack {
         val dp = Datapack(world, name)
         ctx.children?.map { it.accept(this) }?.forEach {
@@ -25,6 +27,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
     }
 
     override fun visitFunction(ctx: DpackParser.FunctionContext): Pair<String, Function> {
+        afterReturn = false
         // Unpack function params
         val unpack = ctx.ID().drop(1).mapIndexed { i, id ->
             Cmd("scoreboard players operation ${Sel()} $id = ${Sel()} -P$i")
@@ -36,16 +39,20 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
     override fun visitBlock(ctx: DpackParser.BlockContext) = ctx.statement().flatMap(this::visitStatement)
 
     override fun visitStatement(ctx: DpackParser.StatementContext): List<Cmd> {
-        val commands =
+        val previousReturn = afterReturn
+
+        val cmds =
             if (ctx.COMMAND() != null)
                 listOf(Cmd(clean(ctx.COMMAND())))
             else
                 ctx.children[0].accept(this) as List<Cmd>? ?: listOf(Cmd("{UNKNOWN}"))
 
+        cmds.forEach { it.afterReturn = previousReturn }
+
         return if (debug && ctx.children[0] !is DpackParser.If_Context && ctx.children[0] !is DpackParser.ExecuteContext)
-            listOf(Comment(ctx.text.trim())) + commands
+            listOf(Comment(ctx.text.trim())) + cmds
         else
-            commands
+            cmds
     }
 
     override fun visitCond(ctx: DpackParser.CondContext): String {
@@ -193,13 +200,16 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
     }
 
     override fun visitReturn(ctx: DpackParser.ReturnContext): List<Cmd> {
-        return ctx.value().mapIndexed { i, v ->
+        val cmds = ctx.value().mapIndexed { i, v ->
             val returnVar = "@e[tag=$name-S, scores={-N=1}] -P$i"
             if (v.NUM() != null)
                 Cmd("""scoreboard players set $returnVar ${v.NUM().text}""")
             else
                 Cmd("""scoreboard players operation $returnVar = ${Sel(v.`var`().SEL())} ${v.`var`().ID().text}""")
-        }
+        } + Cmd("""tag ${Sel()} add -R""")
+
+        afterReturn = true
+        return cmds
     }
 
     override fun visitAffect(ctx: DpackParser.AffectContext): List<Cmd> {

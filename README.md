@@ -25,6 +25,7 @@ with one armor stand per function call.
 | `name-F` | Function call parameters store       |
 |  `-In`   | Run depth n `if` branch              |
 |  `-An`   | Any previous nth `if` branch has run |
+|   `-R`   | Function returned early              |
 
 
 ## TODO

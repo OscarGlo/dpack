@@ -24,7 +24,10 @@ deposit() {
 }
 
 player_count() {
-	count = 2 #/list
+	count = /list
+	if count == 1 {
+		return 2
+	}
 	return count
 }
 
