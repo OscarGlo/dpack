@@ -1,6 +1,18 @@
+ import DpackParser.*
+
 open class Cmd(val command: String, vararg options: String) {
     companion object {
         var packName: String = ""
+    }
+
+    open class Operation(val target: SelId, val operation: String) {
+        fun to(selId: SelId) = Cmd("""scoreboard players operation $target $operation $selId""")
+    }
+
+    class Set(target: SelId) : Operation(target, "=") {
+        fun to(value: ValueContext) =
+            if (value.NUM() != null) Cmd("""scoreboard players set $target ${value.NUM().text}""")
+            else to(SelId(value.`var`()))
     }
 
     val options = options.toMutableList()

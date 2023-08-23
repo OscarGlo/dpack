@@ -34,4 +34,3 @@ with one armor stand per function call.
 - tail recursive functions
 - execute single command ifs directly
 - improve debug (whitespace, blocks)
-- early return

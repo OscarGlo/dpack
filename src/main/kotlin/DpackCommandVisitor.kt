@@ -1,14 +1,4 @@
-import org.antlr.v4.runtime.tree.TerminalNode
-
-fun clean(node: TerminalNode) = node.text.replace(Regex("^\\s*/|\\s*$"), "")
-
-fun str(ctx: DpackParser.VarContext, limit: Boolean = false): String {
-    val sel = Sel(ctx.SEL())
-    if (limit) sel.limit()
-    return "$sel ${ctx.ID().text}"
-}
-
-fun str(ctx: DpackParser.EntityDataPathContext) = "${Sel(ctx.SEL())} ${ctx.dataPath().text}"
+import DpackParser.*
 
 @Suppress("UNCHECKED_CAST")
 class DpackCommandVisitor(private val world: String, private val name: String, private val debug: Boolean = false) :
@@ -17,7 +7,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
 
     private var afterReturn = false
 
-    override fun visitProgram(ctx: DpackParser.ProgramContext): Datapack {
+    override fun visitProgram(ctx: ProgramContext): Datapack {
         val dp = Datapack(world, name)
         ctx.children?.map { it.accept(this) }?.forEach {
             if (it is Pair<*, *>)
@@ -26,19 +16,19 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         return dp
     }
 
-    override fun visitFunction(ctx: DpackParser.FunctionContext): Pair<String, Function> {
+    override fun visitFunction(ctx: FunctionContext): Pair<String, Function> {
         afterReturn = false
         // Unpack function params
         val unpack = ctx.ID().drop(1).mapIndexed { i, id ->
-            Cmd("scoreboard players operation ${Sel()} $id = ${Sel()} -P$i")
+            Cmd.Set(SelId(id.text)).to(SelId("-P$i"))
         }
         val cmds = this.visitBlock(ctx.block())
         return ctx.ID(0).text to unpack + cmds
     }
 
-    override fun visitBlock(ctx: DpackParser.BlockContext) = ctx.statement().flatMap(this::visitStatement)
+    override fun visitBlock(ctx: BlockContext) = ctx.statement().flatMap(this::visitStatement)
 
-    override fun visitStatement(ctx: DpackParser.StatementContext): List<Cmd> {
+    override fun visitStatement(ctx: StatementContext): List<Cmd> {
         val previousReturn = afterReturn
 
         val cmds =
@@ -49,13 +39,13 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
 
         cmds.forEach { it.afterReturn = previousReturn }
 
-        return if (debug && ctx.children[0] !is DpackParser.If_Context && ctx.children[0] !is DpackParser.ExecuteContext)
+        return if (debug && ctx.children[0] !is If_Context && ctx.children[0] !is ExecuteContext)
             listOf(Comment(ctx.text.trim())) + cmds
         else
             cmds
     }
 
-    override fun visitCond(ctx: DpackParser.CondContext): String {
+    override fun visitCond(ctx: CondContext): String {
         val neg = ctx.UNLESS() != null
 
         ctx.boolExpr()?.let { expr ->
@@ -95,9 +85,9 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         return (if (neg) "unless" else "if") + " entity ${Sel(ctx.SEL())}"
     }
 
-    private fun ifBlock(block: DpackParser.BlockContext) = this.visitBlock(block).map { it.apply { ifCount++ } }
+    private fun ifBlock(block: BlockContext) = this.visitBlock(block).map { it.apply { ifCount++ } }
 
-    override fun visitIf_(ctx: DpackParser.If_Context): List<Cmd> {
+    override fun visitIf_(ctx: If_Context): List<Cmd> {
         ifN++
 
         val needAll = ctx.else_if().isNotEmpty() && (ctx.else_if().size > 1 || ctx.else_() != null)
@@ -153,7 +143,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         return cmds
     }
 
-    override fun visitExecute(ctx: DpackParser.ExecuteContext): List<Cmd> {
+    override fun visitExecute(ctx: ExecuteContext): List<Cmd> {
         val opts = ctx.subExec().map {
             it.executeKeyword().text + " " + it.STRING().text.run { substring(1, length - 1) }
         }
@@ -163,16 +153,13 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         else cmds
     }
 
-    override fun visitFunCall(ctx: DpackParser.FunCallContext): Any {
+    override fun visitFunCall(ctx: FunCallContext): Any {
         val cmds = emptyList<Cmd>().toMutableList()
         if (ctx.value().isNotEmpty()) {
             cmds += Cmd("""summon armor_stand ~ -64 ~ {Invisible:1,Marker:1,Tags:["$name-S","$name-F"]}""", "at @p")
             // Bind arguments
-            cmds += ctx.value().mapIndexed { i, va ->
-                if (va.`var`() != null)
-                    Cmd("scoreboard players operation ${ETags("$name-F")} -P$i = ${str(va.`var`())}")
-                else
-                    Cmd("scoreboard players set ${ETags("$name-F")} -P$i ${va.NUM().text}")
+            cmds += ctx.value().mapIndexed { i, v ->
+                Cmd.Set(SelId(ETags("$name-F"), "-P$i")).to(v)
             }
         }
 
@@ -185,9 +172,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         }
 
         // Bind return values
-        val affect = ctx.`var`().mapIndexed { i, v ->
-            Cmd("""scoreboard players operation ${Sel(v.SEL())} ${v.ID().text} = ${Sel()} -P$i""")
-        }
+        val affect = ctx.`var`().mapIndexed { i, v -> Cmd.Set(SelId(v)).to(SelId("-P$i")) }
 
         return cmds + listOf(
             call,
@@ -199,32 +184,25 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         )
     }
 
-    override fun visitReturn(ctx: DpackParser.ReturnContext): List<Cmd> {
+    override fun visitReturn(ctx: ReturnContext): List<Cmd> {
         val cmds = ctx.value().mapIndexed { i, v ->
-            val returnVar = "@e[tag=$name-S, scores={-N=1}] -P$i"
-            if (v.NUM() != null)
-                Cmd("""scoreboard players set $returnVar ${v.NUM().text}""")
-            else
-                Cmd("""scoreboard players operation $returnVar = ${Sel(v.`var`().SEL())} ${v.`var`().ID().text}""")
+            Cmd.Set(SelId(ETags("$name-S").set("scores", "{-N=1}"), "-P$i")).to(v)
         } + Cmd("""tag ${Sel()} add -R""")
 
         afterReturn = true
         return cmds
     }
 
-    override fun visitAffect(ctx: DpackParser.AffectContext): List<Cmd> {
+    override fun visitAffect(ctx: AffectContext): List<Cmd> {
         val va = str(ctx.`var`())
         ctx.SET()?.let {
-            ctx.COMMAND()?.let {
-                return listOf(Cmd(clean(it), "store result score $va"))
-            }
-            ctx.value().`var`()?.let {
-                return listOf(Cmd("scoreboard players operation $va = ${str(it)}"))
-            }
-            return listOf(Cmd("scoreboard players set $va ${ctx.value().text}"))
+            return if (ctx.COMMAND() != null)
+                listOf(Cmd(clean(it), "store result score $va"))
+            else
+                listOf(Cmd.Set(SelId(ctx.`var`())).to(ctx.value()))
         }
         ctx.value().`var`()?.let {
-            return listOf(Cmd("scoreboard players operation $va ${ctx.opSet().text} ${str(it)}"))
+            return listOf(Cmd.Operation(SelId(ctx.`var`()), ctx.opSet().text).to(SelId(it)))
         }
         when (ctx.opSet().text) {
             "+=" -> return listOf(
@@ -236,17 +214,17 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
             )
         }
         return listOf(
-            Cmd("scoreboard players set ${Sel()} -T ${ctx.value().text}"),
-            Cmd("scoreboard players operation $va ${ctx.opSet().text} ${Sel()} -T")
+            Cmd.Set(SelId("-T")).to(ctx.value()),
+            Cmd.Operation(SelId(ctx.`var`()), ctx.opSet().text).to(SelId("-T"))
         )
     }
 
-    override fun visitIncdec(ctx: DpackParser.IncdecContext): List<Cmd> {
+    override fun visitIncdec(ctx: IncdecContext): List<Cmd> {
         val op = if (ctx.INC() != null) "add" else "remove"
         return listOf(Cmd("scoreboard players $op ${str(ctx.`var`())} 1"))
     }
 
-    override fun visitDataSet(ctx: DpackParser.DataSetContext): List<Cmd> {
+    override fun visitDataSet(ctx: DataSetContext): List<Cmd> {
         val dp = ctx.entityDataPath(0)
         var cmd = ""
 
@@ -271,7 +249,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         return listOf(Cmd(cmd, "store result entity ${str(dp)} double 1"))
     }
 
-    override fun visitSetData(ctx: DpackParser.SetDataContext): List<Cmd> {
+    override fun visitSetData(ctx: SetDataContext): List<Cmd> {
         return listOf(
             Cmd(
                 "data get entity ${str(ctx.entityDataPath())}",
@@ -280,7 +258,7 @@ class DpackCommandVisitor(private val world: String, private val name: String, p
         )
     }
 
-    override fun visitTellraw(ctx: DpackParser.TellrawContext): List<Cmd> {
+    override fun visitTellraw(ctx: TellrawContext): List<Cmd> {
         val sel = ctx.SEL()?.let { Sel(it) } ?: Sel("@a")
         val parts = ctx.tellrawPart().map {
             it.STRING()?.text ?: "{\"score\":{\"name\":\"${Sel(it.`var`().SEL())}\",\"objective\":\"${
